@@ -23,6 +23,12 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import datetime as dt
+
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+pd.set_option('display.float_format', lambda x: '%.5f' % x)
 
 df_ = pd.read_excel("datasets/online_retail_II.xlsx", sheet_name = "Year 2010-2011")
 df = df_
@@ -38,38 +44,6 @@ df['TotalPrice'] = df['Quantity'] * df['Price']
 df["Customer ID"].nunique()
 df["Invoice"].nunique()
 # 4339 müşteri toplam 18536 transaction yapmış
-
-##############################################################
-# Günlük İşlem Sayısı ve Grafiği
-##############################################################
-
-temp_df = df
-temp_df['InvoiceDate'] = pd.to_datetime(temp_df['InvoiceDate']).dt.date
-daily_transactions = temp_df.groupby("InvoiceDate").agg({"Invoice": lambda x: x.nunique()}).rename(columns={'Invoice':'Transactions'})
-daily_transactions.head()
-daily_transactions.index.min()
-daily_transactions.index.max()
-# Veri setindeki transactionları incelediğimizde, ilk işlemin 1 Aralık 2010'da gerçekleştiğini ve
-# son işlemin 9 Aralık 2011'de gerçekleştiğini görüyoruz. 1 yıldan biraz daha uzun süreli bir veri kümesi diyebiliriz.
-
-# GRAFİK
-sns.set(rc={'figure.figsize':(11, 4)})
-ax = daily_transactions["Transactions"].plot()
-ax.set_ylabel('Daily Transaction Count')
-plt.show()
-
-##############################################################
-# Aylık İşlem Sayısı ve Grafiği
-##############################################################
-
-temp_df['InvoiceDate'] = pd.to_datetime(temp_df['InvoiceDate']).dt.to_period('M')
-monthly_transactions = temp_df.groupby("InvoiceDate").agg({"Invoice": lambda x: x.nunique()}).rename(columns={'Invoice':'Transactions'})
-monthly_transactions.head()
-
-# GRAFİK
-ax = monthly_transactions["Transactions"].plot()
-ax.set_ylabel('Monthly Transaction Count')
-plt.show()
 
 
 ##############################################################
@@ -88,4 +62,35 @@ plt.show()
 # son tarihi belirleyeceğiz ve bunu tüm hesaplamalar için bugünün tarihi olarak tanımlayacağız.
 
 df.head()
+
+observation_period_end = dt.datetime(2011, 12, 9)
+
+summary_data_from_transaction_data = df.groupby('Customer ID').agg({'Invoice': lambda num: num.nunique(),
+                                                                    'InvoiceDate': [lambda date: (date.max() - date.min()).days,
+                                                                                    lambda date: (observation_period_end - date.min()).days],
+                                                                    'TotalPrice': lambda TotalPrice: TotalPrice.sum()})
+
+summary_data_from_transaction_data["TotalPrice"] = summary_data_from_transaction_data["TotalPrice"] / summary_data_from_transaction_data["Invoice"]
+summary_data_from_transaction_data.columns = summary_data_from_transaction_data.columns.droplevel(0)
+summary_data_from_transaction_data.columns = ["frequency","recency","T","monetary_value"]
+
+summary_data_from_transaction_data.head()
+
+
+##############################################################
+# Metriklerin Incelenmesi
+##############################################################
+
+# İlk alışveriş dahil.
+# Monetary_value değeri her bir faturanın TotalPrice'larının toplamının fatura sayısına bölümünden hesaplanıyor.
+
+# 12347 ID'li müşteri için sağlamasını yapalım
+customer = df[df["Customer ID"] == 12347.0].groupby("Invoice").agg({"TotalPrice":"sum","InvoiceDate":"max"})
+customer.shape[0] # beklenen frekans
+customer["TotalPrice"].sum() / customer.shape[0] # beklenen monetary_avg
+
+# 12349.0 ID'li müşteri için sağlamasını yapalım
+customer = df[df["Customer ID"] == 12349.0].groupby("Invoice").agg({"TotalPrice":"sum","InvoiceDate":"max"})
+customer.shape[0] # beklenen frekans
+customer["TotalPrice"].sum() / customer.shape[0] # beklenen monetary_avg
 
