@@ -24,7 +24,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime as dt
-
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import datetime
+from sklearn.metrics import mean_absolute_error, f1_score
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -94,3 +97,52 @@ customer = df[df["Customer ID"] == 12349.0].groupby("Invoice").agg({"TotalPrice"
 customer.shape[0] # beklenen frekans
 customer["TotalPrice"].sum() / customer.shape[0] # beklenen monetary_avg
 
+
+##############################################################
+# HOLDOUT
+##############################################################
+
+# Veri setini train ve test olarak ayırmamız gerekiyor.
+# 12 aylık bir veri seti
+# Train -> ilk 8 ay içerecek
+# Test -> son 4 ay içerecek
+
+
+# TRAIN
+calibration_period_end = dt.datetime(2011, 8, 8)  # Train seti için sınır
+observation_period_end = dt.datetime(2011, 12, 9)# Test seti için sınır
+
+
+calibration_transactions = df.loc[df["InvoiceDate"] <= calibration_period_end]
+
+calibration_summary_data = calibration_transactions.groupby('Customer ID').agg({'Invoice': lambda num: num.nunique(),
+                                                                                'InvoiceDate': [lambda date: (date.max() - date.min()).days,
+                                                                                                lambda date: (calibration_period_end - date.min()).days],
+                                                                                'TotalPrice': lambda TotalPrice: TotalPrice.sum()})
+
+calibration_summary_data["TotalPrice"] = calibration_summary_data["TotalPrice"] / calibration_summary_data["Invoice"]
+calibration_summary_data.columns = calibration_summary_data.columns.droplevel(0)
+calibration_summary_data.columns = ["frequency_cal","recency_cal","T_cal","monetary_value_cal"]
+
+calibration_summary_data.head()
+
+# TEST
+
+holdout_transactions = df.loc[(observation_period_end >= df["InvoiceDate"]) & (df["InvoiceDate"] > calibration_period_end)]
+
+holdout_summary_data = holdout_transactions.groupby('Customer ID').agg({'Invoice': lambda num: num.nunique(),
+                                                                        'TotalPrice': lambda TotalPrice: TotalPrice.sum(),
+                                                                        'InvoiceDate': lambda date: (observation_period_end - calibration_period_end).days})
+
+holdout_summary_data["TotalPrice"] = holdout_summary_data["TotalPrice"] / holdout_summary_data["Invoice"]
+holdout_summary_data.columns = ["frequency_holdout","monetary_value_holdout","duration_holdout"]
+
+holdout_summary_data.head()
+
+
+# COMBINED
+
+combined_data = calibration_summary_data.join(holdout_summary_data, how="left")
+combined_data.fillna(0, inplace=True)
+
+combined_data.head()
