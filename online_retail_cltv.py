@@ -164,7 +164,6 @@ combined_data.head()
 combined_data = combined_data.loc[combined_data.frequency_cal > 1, :]
 #combined_data = combined_data.loc[combined_data.monetary_value_cal> 0, :]
 
-combined_data.head()
 
 #combined_data.isnull().any()
 
@@ -239,8 +238,8 @@ ggf.fit(combined_data['frequency_cal'],
         combined_data['monetary_value_cal'])
 
 #Prediction
-monetary_pred = ggf.conditional_expected_average_profit(combined_data['frequency_holdout'],
-                                                        combined_data['monetary_value_holdout'])
+monetary_pred = ggf.conditional_expected_average_profit(combined_data['frequency_cal'],
+                                                        combined_data['monetary_value_cal'])
 
 # Actual values ile predicted values gözlemlemek için yeni bir dataframe oluşturma
 df_comp_m = pd.DataFrame()
